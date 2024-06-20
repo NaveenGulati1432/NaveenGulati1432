@@ -1,0 +1,31 @@
+{
+	"name": "dslshttpdeathcase",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_HttpServer_covid",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"RelativeUrl": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "DelimitedText",
+		"typeProperties": {
+			"location": {
+				"type": "HttpServerLocation",
+				"relativeUrl": {
+					"value": "@dataset().RelativeUrl",
+					"type": "Expression"
+				}
+			},
+			"columnDelimiter": ",",
+			"escapeChar": "\\",
+			"firstRowAsHeader": true,
+			"quoteChar": "\""
+		},
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

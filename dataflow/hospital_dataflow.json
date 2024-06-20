@@ -1,0 +1,151 @@
+{
+	"name": "hospital_dataflow",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "dl_hospital_data",
+						"type": "DatasetReference"
+					},
+					"name": "hospitaldataflow"
+				},
+				{
+					"dataset": {
+						"referenceName": "ds_country_lookup",
+						"type": "DatasetReference"
+					},
+					"name": "countrydata"
+				},
+				{
+					"dataset": {
+						"referenceName": "dl_dim_date",
+						"type": "DatasetReference"
+					},
+					"name": "dimdate"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "dl_hospital_data",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [
+				{
+					"name": "selectandrename"
+				},
+				{
+					"name": "lookupwithcountry"
+				},
+				{
+					"name": "selectrequiredfields"
+				},
+				{
+					"name": "split"
+				},
+				{
+					"name": "aggregate1"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          country as string,",
+				"          indicator as string,",
+				"          date as string,",
+				"          year_week as string,",
+				"          value as string,",
+				"          source as string,",
+				"          url as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> hospitaldataflow",
+				"source(output(",
+				"          country as string,",
+				"          country_code_2_digit as string,",
+				"          country_code_3_digit as string,",
+				"          continent as string,",
+				"          population as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> countrydata",
+				"source(output(",
+				"          date_key as string,",
+				"          date as string,",
+				"          year as string,",
+				"          month as string,",
+				"          day as string,",
+				"          day_name as string,",
+				"          day_of_year as string,",
+				"          week_of_month as string,",
+				"          week_of_year as string,",
+				"          month_name as string,",
+				"          year_month as string,",
+				"          year_week as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> dimdate",
+				"hospitaldataflow select(mapColumn(",
+				"          country,",
+				"          indicator,",
+				"          date,",
+				"          year_week,",
+				"          value,",
+				"          source,",
+				"          each(match(name=='date'),",
+				"               'reported_'+$$ = $$),",
+				"          each(match(name=='year_week'),",
+				"               'reported_'+$$ = $$)",
+				"     ),",
+				"     skipDuplicateMapInputs: false,",
+				"     skipDuplicateMapOutputs: false) ~> selectandrename",
+				"selectandrename, countrydata lookup(selectandrename@country == countrydata@country,",
+				"     multiple: false,",
+				"     pickup: 'any',",
+				"     broadcast: 'auto')~> lookupwithcountry",
+				"lookupwithcountry select(mapColumn(",
+				"          country = selectandrename@country,",
+				"          indicator,",
+				"          value,",
+				"          source,",
+				"          reported_date,",
+				"          reported_year_week,",
+				"          country_code_2_digit,",
+				"          country_code_3_digit,",
+				"          continent,",
+				"          population",
+				"     ),",
+				"     skipDuplicateMapInputs: false,",
+				"     skipDuplicateMapOutputs: false) ~> selectrequiredfields",
+				"selectrequiredfields split(indicator == 'Daily hospital occupancy',",
+				"     indicator == 'Weekly new hospital admissions',",
+				"     disjoint: true) ~> split@(dailyhospitaloccupancy, weeklynewadmission)",
+				"dimdate aggregate(groupBy(year),",
+				"     date = min(date)) ~> aggregate1",
+				"split@dailyhospitaloccupancy sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          country as string,",
+				"          indicator as string,",
+				"          date as string,",
+				"          year_week as string,",
+				"          value as string,",
+				"          source as string,",
+				"          url as string",
+				"     ),",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> sink1"
+			]
+		}
+	}
+}
